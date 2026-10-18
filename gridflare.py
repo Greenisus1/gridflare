@@ -4,7 +4,7 @@ import curses,os,json,random,time,sys
 from pathlib import Path
 from ui import put,run
 import sprites
-VERSION='1.0.0'
+VERSION='1.1.0'
 RECORD=Path.home()/'.local/share/gridflare/best.json'
 BOARD=8
 SHAPES=(
@@ -18,6 +18,20 @@ SHAPES=(
  ((0,0),(0,1),(0,2),(1,1)),((0,1),(1,0),(1,1),(1,2)),((0,0),(1,0),(1,1),(2,0)),((0,1),(1,0),(1,1),(2,1)),
  ((0,1),(0,2),(1,0),(1,1)),((0,0),(0,1),(1,1),(1,2)),
  ((0,0),(0,1),(0,2),(1,0),(1,1),(1,2)),((0,0),(0,1),(1,0),(1,1),(2,0),(2,1)))
+def rot_cw(shape):
+ h=max(y for y,x in shape)+1;pts=[(x,h-1-y) for y,x in shape]
+ my=min(y for y,x in pts);mx=min(x for y,x in pts)
+ return tuple(sorted((y-my,x-mx) for y,x in pts))
+def rot_ccw(shape):
+ w=max(x for y,x in shape)+1;pts=[(w-1-x,y) for y,x in shape]
+ my=min(y for y,x in pts);mx=min(x for y,x in pts)
+ return tuple(sorted((y-my,x-mx) for y,x in pts))
+def rotations(shape):
+ out=[];cur=shape
+ for _ in range(4):
+  if cur not in out:out.append(cur)
+  cur=rot_cw(cur)
+ return out
 class Puzzle:
  def __init__(self,seed=None):
   self.rng=random.Random(seed);self.grid=[[None]*BOARD for _ in range(BOARD)];self.score=0;self.over=False;self.message='Place all three pieces to draw three more.';self.offer=[];self.refill()
@@ -33,6 +47,12 @@ class Puzzle:
  def fits_anywhere(self,shape):
   h,w=self.shape_dims(shape)
   return any(self.can_place(shape,r,c) for r in range(BOARD-h+1) for c in range(BOARD-w+1))
+ def rotate(self,slot,direction):
+  if self.over or not (0<=slot<len(self.offer)):return False
+  shape,color=self.offer[slot]
+  self.offer[slot]=((rot_cw if direction>0 else rot_ccw)(shape),color)
+  self.message='Rotated.'
+  return True
  def place(self,slot,r,c):
   if self.over:return False
   if not (0<=slot<len(self.offer)):return False
@@ -51,7 +71,7 @@ class Puzzle:
   if lines:self.score+=100*lines+50*lines*(lines-1);self.message='Flare! '+str(lines)+' line'+('s' if lines>1 else '')+' cleared.'
   else:self.message='Placed.'
   if not self.offer:self.refill()
-  if not any(self.fits_anywhere(s) for s,c in self.offer):self.over=True;self.message='No moves left. R restarts.'
+  if not any(self.fits_anywhere(r) for s,c in self.offer for r in rotations(s)):self.over=True;self.message='No moves left. Space restarts.'
   return True
 def best():
  try:
@@ -78,7 +98,7 @@ def play(s):
   s.timeout(120);key=s.getch();h,w=s.getmaxyx();s.erase()
   if key in (27,ord('q'),ord('Q')):return
   if key in (ord('v'),ord('V')):pixels=not pixels;s.clear()
-  if key in (ord('r'),ord('R')):g=Puzzle();row=0;col=0;slot=0;recorded=False
+  if key==ord(' '):g=Puzzle();row=0;col=0;slot=0;recorded=False
   if h<24 or w<64:put(s,1,1,'Resize to 64x24. Game paused. Q quits.');s.refresh();continue
   if key in (ord('1'),ord('2'),ord('3')) and ord('1')<=key<ord('1')+len(g.offer):slot=key-ord('1')
   slot=min(slot,max(0,len(g.offer)-1))
@@ -89,7 +109,11 @@ def play(s):
    if key in (curses.KEY_DOWN,ord('s'),ord('S')):row=min(BOARD-sh,row+1)
    if key in (curses.KEY_LEFT,ord('a'),ord('A')):col=max(0,col-1)
    if key in (curses.KEY_RIGHT,ord('d'),ord('D')):col=min(BOARD-sw,col+1)
-   if key in (ord(' '),10,13):
+   if key in (ord('l'),ord('L')):
+    if g.rotate(slot,-1):sh,sw=g.shape_dims(g.offer[slot][0]);row=min(row,BOARD-sh);col=min(col,BOARD-sw)
+   if key in (ord('r'),ord('R')):
+    if g.rotate(slot,1):sh,sw=g.shape_dims(g.offer[slot][0]);row=min(row,BOARD-sh);col=min(col,BOARD-sw)
+   if key in (10,13):
     if g.place(slot,row,col):slot=min(slot,max(0,len(g.offer)-1));row=0;col=0
   row=max(0,min(row,BOARD-1));col=max(0,min(col,BOARD-1))
   if g.over and not recorded:g.message+=' Best saved.' if save(g.score) else ' Save unavailable.';recorded=True;high=max(high,best())
@@ -113,7 +137,7 @@ def play(s):
    tx+=g.shape_dims(shape)[1]*3+6
   put(s,0,2,'GRIDFLARE | SCORE '+str(g.score)+' | BEST '+str(high),color(7)|curses.A_BOLD)
   put(s,1,2,g.message,color(2))
-  put(s,h-2,2,'1-3 choose piece | Arrows/WASD move | Space place | V pixel/text | R restart | Q quit',color(7))
+  put(s,h-2,2,'1-3 choose piece | Arrows/WASD move | Enter place | L/R rotate | V pixel/text | Space restart | Q quit',color(7))
   put(s,h-1,2,'Fill a full row or column to flare it clear. No fitting piece ends the run.',color(8));s.refresh()
   if pixels:sys.stdout.write(sprites.frame(g,cw,rh,ox,oy,slot,row,col));sys.stdout.flush()
 if __name__=='__main__':
