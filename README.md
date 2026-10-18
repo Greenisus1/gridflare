@@ -6,7 +6,7 @@ Built with AI assistance from my design. Free, offline, no desktop, accounts, AP
 
 ## Play
 
-You always hold three pieces. 1-3 picks one, Arrows/WASD move its ghost over the board, Space/Enter places it. Placing all three draws three more. Every placed cell scores; each cleared line scores 100 with a growing bonus for multiple lines at once. The run ends when none of your pieces fits anywhere. R restarts, Q/Esc quits. Letter controls accept either casing.
+You always hold three pieces. 1-3 picks one, Arrows/WASD move its ghost over the board, Enter places it. L rotates the picked piece left and R rotates it right (rotation is new in 1.1.0). Placing all three draws three more. Every placed cell scores; each cleared line scores 100 with a growing bonus for multiple lines at once. The run ends when none of your pieces fits anywhere in any rotation. Space restarts, Q/Esc quits. Letter controls accept either casing.
 
 ## Display and setup
 
